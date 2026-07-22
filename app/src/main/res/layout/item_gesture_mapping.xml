@@ -70,8 +70,8 @@
             android:id="@+id/btn_reset_single"
             android:layout_width="36dp"
             android:layout_height="36dp"
-            android:src="?attr/actionModeUndoDrawable"
-            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_revert"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
             android:contentDescription="恢复默认"
             app:tint="@color/text_secondary"
             android:layout_marginStart="4dp" />
