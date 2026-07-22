@@ -77,7 +77,7 @@ class RecordGestureActivity : AppCompatActivity() {
         // 录制按钮
         btnRecord.setOnClickListener {
             if (isRecording) {
-                stopRecording()
+                scope.launch { stopRecording() }
             } else {
                 startRecording()
             }
