@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.button.MaterialButton
 import com.handcontrol.phone.action.GestureActionService
 import com.handcontrol.phone.camera.OverlayService
 import com.handcontrol.phone.config.ConfigActivity

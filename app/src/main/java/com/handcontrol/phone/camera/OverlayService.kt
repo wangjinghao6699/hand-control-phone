@@ -9,6 +9,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.*
+import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.IBinder
 import android.util.DisplayMetrics
@@ -16,6 +17,7 @@ import android.util.Log
 import android.view.*
 import android.view.WindowManager.LayoutParams.*
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.camera.view.PreviewView
 import androidx.core.app.NotificationCompat
@@ -193,24 +195,25 @@ class OverlayService : Service(), LifecycleOwner {
                 (4 * density).roundToInt(),
                 (4 * density).roundToInt()
             )
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            ).apply {
-                gravity = Gravity.BOTTOM
-            }
+        }
+        statusBar.layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        ).apply {
+            gravity = Gravity.BOTTOM
         }
 
         // 状态指示灯
-        statusIndicator = View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                (8 * density).roundToInt(),
-                (8 * density).roundToInt()
-            ).apply {
-                setMargins(0, 0, 0, (2 * density).roundToInt())
-            }
+        val indicator = View(this).apply {
             setBackgroundResource(R.drawable.circle_green)
         }
+        indicator.layoutParams = LinearLayout.LayoutParams(
+            (8 * density).roundToInt(),
+            (8 * density).roundToInt()
+        ).apply {
+            setMargins(0, 0, 0, (2 * density).roundToInt())
+        }
+        statusIndicator = indicator
         statusBar.addView(statusIndicator)
 
         // 手势文字
@@ -345,7 +348,7 @@ class OverlayService : Service(), LifecycleOwner {
             // 触发操作
             if (gesture != GestureType.UNKNOWN) {
                 val action = mappingStore.getAction(gesture)
-                if (action != com.handcontrol.phone.gesture.DouinAction.NONE) {
+                if (action != com.handcontrol.phone.gesture.DouyinAction.NONE) {
                     val executed = GestureActionService.execute(action)
                     if (executed) {
                         // 闪烁提示
@@ -389,7 +392,7 @@ class OverlayService : Service(), LifecycleOwner {
     // ──────────────────────────────────────────
 
     fun updatePosition(x: Int, y: Int) {
-        if (::layoutParams.isInitialized && layoutParams != null) {
+        if (layoutParams != null) {
             layoutParams!!.x = x
             layoutParams!!.y = y
             try {
