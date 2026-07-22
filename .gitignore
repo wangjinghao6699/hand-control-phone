@@ -1,0 +1,28 @@
+# Android / Gradle
+.gradle/
+build/
+app/build/
+*.apk
+*.aab
+*.dex
+*.class
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+*.swp
+*.swo
+
+# Reasonix
+.reasonix/
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Signing
+*.jks
+*.keystore
+*.p12

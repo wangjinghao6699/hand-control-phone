@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="primary">#FF0050E4</color>
+    <color name="primary_dark">#FF003CB4</color>
+    <color name="accent">#FFFE2C55</color>
+    <color name="background">#FF121212</color>
+    <color name="surface">#FF1E1E1E</color>
+    <color name="on_primary">#FFFFFFFF</color>
+    <color name="on_background">#FFFFFFFF</color>
+    <color name="text_secondary">#FFAAAAAA</color>
+    <color name="overlay_bg">#88000000</color>
+    <color name="gesture_active">#FF00E676</color>
+    <color name="gesture_inactive">#FF616161</color>
+</resources>

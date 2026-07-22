@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">手势控制</string>
+    <string name="config_title">手势配置</string>
+    <string name="accessibility_service_desc">用于在抖音中模拟滑动手势和点击操作</string>
+
+    <string name="start_service">启动手势识别</string>
+    <string name="stop_service">停止手势识别</string>
+    <string name="open_config">自定义手势</string>
+    <string name="open_accessibility">开启无障碍服务</string>
+    <string name="permission_overlay">悬浮窗权限</string>
+    <string name="permission_camera">摄像头权限</string>
+
+    <string name="status_running">运行中</string>
+    <string name="status_stopped">已停止</string>
+    <string name="status_no_permission">缺少权限</string>
+
+    <string name="gesture_swipe_up">上划</string>
+    <string name="gesture_swipe_down">下划</string>
+    <string name="gesture_like">点赞</string>
+    <string name="gesture_favorite">收藏</string>
+    <string name="gesture_pause">暂停/播放</string>
+    <string name="gesture_comment">打开评论区</string>
+    <string name="gesture_profile">作者主页</string>
+
+    <string name="action_swipe_up">上划</string>
+    <string name="action_swipe_down">下划</string>
+    <string name="action_like">点赞</string>
+    <string name="action_favorite">收藏</string>
+    <string name="action_pause">暂停/播放</string>
+    <string name="action_comment">评论区</string>
+    <string name="action_profile">作者主页</string>
+</resources>
