@@ -44,6 +44,13 @@
             android:label="@string/config_title"
             android:theme="@style/Theme.HandControlPhone" />
 
+        <!-- 手势录制界面 -->
+        <activity
+            android:name=".config.RecordGestureActivity"
+            android:exported="false"
+            android:label="录制手势"
+            android:theme="@style/Theme.HandControlPhone" />
+
         <!-- 悬浮窗服务 -->
         <service
             android:name=".camera.OverlayService"

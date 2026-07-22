@@ -44,7 +44,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="为每种手势选择对应的抖音操作。手势识别到后会自动执行所选操作。"
+        android:text="为每个操作录制对应的手势。点击操作进入录制界面，对着摄像头保持手势即可自动采集。滑动手势（上划/下划）无需录制。"
         android:textSize="13sp"
         android:textColor="@color/text_secondary"
         android:padding="16dp"

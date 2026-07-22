@@ -113,6 +113,37 @@
                     android:textColor="@color/text_secondary" />
             </LinearLayout>
 
+            <!-- 摄像头权限行 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <View
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:background="@drawable/circle_accent"
+                    android:layout_marginEnd="12dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/permission_camera"
+                    android:textSize="14sp"
+                    android:textColor="#FFFFFF" />
+
+                <TextView
+                    android:id="@+id/tv_camera_status"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✗ 未授权"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary" />
+            </LinearLayout>
+
             <!-- 无障碍权限行 -->
             <LinearLayout
                 android:layout_width="match_parent"
@@ -208,6 +239,15 @@
                 android:layout_weight="1"
                 android:text="@string/open_accessibility"
                 android:textSize="11sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_camera_permission"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/permission_camera"
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 
@@ -215,7 +255,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="💡 手势使用方法：\n\n启动服务后将自动回到桌面，打开抖音即可通过悬浮窗中的摄像头识别手势。\n\n默认手势：\n• 张开手掌 → 暂停/播放\n• 握拳 → 收藏\n• 点赞手势 → 点赞\n• 食指指向 → 评论区\n• V字手势 → 作者主页\n• 手向上挥 → 上划\n• 手向下挥 → 下划\n\n点击「自定义手势」可修改映射关系。"
+        android:text="💡 使用方法：\n\n1. 确保三项权限都已授权\n2. 点「自定义手势」→ 为每个操作录制对应手势\n3. 返回主界面 → 启动手势识别\n4. 打开抖音，在摄像头前做已录制的手势即可控制\n\n滑动操作（上划/下划）无需录制，直接手掌上下挥动即可。"
         android:textSize="12sp"
         android:textColor="@color/text_secondary"
         android:lineSpacingExtra="2dp"

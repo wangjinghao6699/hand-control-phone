@@ -1,5 +1,6 @@
 package com.handcontrol.phone.config
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -10,13 +11,13 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.handcontrol.phone.R
 import com.handcontrol.phone.gesture.DouyinAction
-import com.handcontrol.phone.gesture.GestureType
+import com.handcontrol.phone.gesture.HandLandmarkHelper
 import kotlinx.coroutines.*
 
 /**
  * 手势配置界面
  *
- * 列表展示所有手势及其当前映射的操作，点击可修改映射。
+ * 显示固定的操作列表，每个操作显示录制状态，点击进入录制界面。
  */
 class ConfigActivity : AppCompatActivity() {
 
@@ -24,7 +25,7 @@ class ConfigActivity : AppCompatActivity() {
     private lateinit var btnResetAll: Button
 
     private val mappingStore by lazy { GestureMappingStore(this) }
-    private val adapter by lazy { GestureMappingAdapter(mappingStore) }
+    private val adapter by lazy { ActionListAdapter(mappingStore) }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,31 +34,32 @@ class ConfigActivity : AppCompatActivity() {
 
         recyclerView = findViewById(R.id.recycler_mappings)
         btnResetAll = findViewById(R.id.btn_reset_all)
-
-        // 返回按钮
-        findViewById<View>(R.id.btn_back)?.setOnClickListener {
-            finish()
-        }
+        findViewById<View>(R.id.btn_back)?.setOnClickListener { finish() }
 
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
 
-        loadMappings()
+        loadProfiles()
 
         btnResetAll.setOnClickListener {
             scope.launch {
                 mappingStore.resetAll()
-                loadMappings()
-                Toast.makeText(this@ConfigActivity, "已恢复默认配置", Toast.LENGTH_SHORT).show()
+                loadProfiles()
+                Toast.makeText(this@ConfigActivity, "已清除所有录制", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun loadMappings() {
+    private fun loadProfiles() {
         scope.launch {
-            val mappings = mappingStore.getAllMappings()
-            adapter.submitList(mappings.toList().sortedBy { it.first.ordinal })
+            val profiles = mappingStore.getAllProfiles()
+            adapter.submitList(profiles)
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadProfiles()
     }
 
     override fun onDestroy() {
@@ -70,101 +72,58 @@ class ConfigActivity : AppCompatActivity() {
 // RecyclerView Adapter
 // ──────────────────────────────────────────────
 
-class GestureMappingAdapter(
+class ActionListAdapter(
     private val mappingStore: GestureMappingStore
-) : RecyclerView.Adapter<GestureMappingAdapter.ViewHolder>() {
+) : RecyclerView.Adapter<ActionListAdapter.ViewHolder>() {
 
-    private var items: List<Pair<GestureType, DouyinAction>> = emptyList()
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+    // 已录制特征: 操作 → 编码
+    private var profiles: Map<DouyinAction, Int> = emptyMap()
 
-    fun submitList(newItems: List<Pair<GestureType, DouyinAction>>) {
-        items = newItems
+    fun submitList(newProfiles: Map<DouyinAction, Int>) {
+        profiles = newProfiles
         notifyDataSetChanged()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_gesture_mapping, parent, false)
+            .inflate(R.layout.item_action_record, parent, false)
         return ViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val (gesture, action) = items[position]
-        holder.bind(gesture, action)
+        val action = GestureMappingStore.RECORDABLE_ACTIONS[position]
+        val code = profiles[action]
+        holder.bind(action, code)
     }
 
-    override fun getItemCount(): Int = items.size
+    override fun getItemCount(): Int = GestureMappingStore.RECORDABLE_ACTIONS.size
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val tvGestureName: TextView = itemView.findViewById(R.id.tv_gesture_name)
+        private val tvActionName: TextView = itemView.findViewById(R.id.tv_action_name)
         private val tvGestureDesc: TextView = itemView.findViewById(R.id.tv_gesture_desc)
-        private val spinnerAction: Spinner = itemView.findViewById(R.id.spinner_action)
-        private val btnReset: ImageButton = itemView.findViewById(R.id.btn_reset_single)
+        private val indicator: View = itemView.findViewById(R.id.indicator_recorded)
 
-        fun bind(gesture: GestureType, currentAction: DouyinAction) {
-            tvGestureName.text = gesture.displayName
-            tvGestureDesc.text = gesture.description
+        fun bind(action: DouyinAction, code: Int?) {
+            tvActionName.text = action.displayName
 
-            // 操作选项适配器
-            val actions = DouyinAction.ACTIONABLE
-            val actionNames = actions.map { it.displayName }.toTypedArray()
-
-            val adapter = ArrayAdapter(
-                itemView.context,
-                android.R.layout.simple_spinner_dropdown_item,
-                actionNames
-            )
-            spinnerAction.adapter = adapter
-
-            // 设置当前选中项
-            val currentIndex = actions.indexOfFirst { it == currentAction }
-            if (currentIndex >= 0) {
-                spinnerAction.setSelection(currentIndex)
+            if (code != null) {
+                val state = GestureMappingStore.decodeFingerState(code)
+                tvGestureDesc.text = "✅ ${GestureMappingStore.fingerStateDescription(state)}"
+                indicator.setBackgroundResource(R.drawable.circle_green)
+            } else {
+                tvGestureDesc.text = "未录制 — 点击右侧按钮录制"
+                indicator.setBackgroundResource(R.drawable.circle_accent)
             }
 
-            // 监听选择变化
-            var isInitialSelection = true
-            spinnerAction.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(
-                    parent: AdapterView<*>?,
-                    view: View?,
-                    position: Int,
-                    id: Long
-                ) {
-                    if (isInitialSelection) {
-                        isInitialSelection = false
-                        return
-                    }
-                    val newAction = actions[position]
-                    scope.launch {
-                        mappingStore.setMapping(gesture, newAction)
-                        Toast.makeText(
-                            itemView.context,
-                            "已设置: ${gesture.displayName} → ${newAction.displayName}",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
+            itemView.setOnClickListener {
+                openRecordActivity(action)
             }
+        }
 
-            // 单条重置按钮
-            btnReset.setOnClickListener {
-                scope.launch {
-                    mappingStore.resetToDefault(gesture)
-                    val defaultAction = gesture.defaultAction
-                    val defaultIndex = actions.indexOfFirst { it == defaultAction }
-                    if (defaultIndex >= 0) {
-                        spinnerAction.setSelection(defaultIndex)
-                    }
-                    Toast.makeText(
-                        itemView.context,
-                        "已恢复: ${gesture.displayName} → ${defaultAction.displayName}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
+        private fun openRecordActivity(action: DouyinAction) {
+            val intent = Intent(itemView.context, RecordGestureActivity::class.java)
+            intent.putExtra(RecordGestureActivity.EXTRA_ACTION_CODE, action.code)
+            itemView.context.startActivity(intent)
         }
     }
 }
