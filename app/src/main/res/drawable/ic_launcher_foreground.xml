@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 手掌主体 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 C60,30 64,27 67,23 L67,48 C67,52 71,56 75,56 C79,56 83,52 83,48 L83,38 C83,32 88,28 93,28 C98,28 102,33 100,40 L95,68 C93,76 88,82 80,84 L50,85 C42,85 36,80 34,74 L28,50 C26,44 30,38 36,38 C40,38 44,42 44,46 L44,28 C44,24 48,20 52,20 C54,20 56,22 56,25 L56,45 C56,46 57,48 58,48 C59,48 60,46 60,45 L60,30 C60,27 62,25 64,25 C66,25 67,27 67,30 Z" />
+
+    <!-- 拇指 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M35,42 C33,42 32,38 32,35 L32,28 C32,23 36,20 38,24 C40,28 40,38 37,42 Z" />
+</vector>
