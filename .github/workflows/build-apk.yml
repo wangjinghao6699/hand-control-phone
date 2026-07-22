@@ -19,8 +19,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 设置 Gradle
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0 platform-tools'
+
+      - name: 设置 Gradle 8.5
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
 
       - name: 编译 Debug APK
         run: gradle assembleDebug
