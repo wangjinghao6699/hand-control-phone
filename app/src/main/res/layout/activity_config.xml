@@ -44,7 +44,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="为每个操作录制对应的手势。点击操作进入录制界面，对着摄像头保持手势即可自动采集。滑动手势（上划/下划）无需录制。"
+        android:text="为每个操作录制对应的手势。点击操作进入录制界面，对着摄像头保持手势即可自动采集 30 帧并保存。"
         android:textSize="13sp"
         android:textColor="@color/text_secondary"
         android:padding="16dp"

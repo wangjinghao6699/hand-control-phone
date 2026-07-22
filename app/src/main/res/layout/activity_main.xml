@@ -255,7 +255,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="💡 使用方法：\n\n1. 确保三项权限都已授权\n2. 点「自定义手势」→ 为每个操作录制对应手势\n3. 返回主界面 → 启动手势识别\n4. 打开抖音，在摄像头前做已录制的手势即可控制\n\n滑动操作（上划/下划）无需录制，直接手掌上下挥动即可。"
+        android:text="💡 使用方法：\n\n1. 确保三项权限都已授权\n2. 点「自定义手势」→ 为每个操作录制对应手势\n3. 返回主界面 → 启动手势识别\n4. 打开抖音，在摄像头前做已录制的手势即可控制"
         android:textSize="12sp"
         android:textColor="@color/text_secondary"
         android:lineSpacingExtra="2dp"

@@ -5,28 +5,21 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.handcontrol.phone.config.GestureMappingStore
 
 /**
- * 手势检测器 — 录制特征匹配 + 滑动检测
+ * 手势检测器 — 纯特征匹配
  *
- * 识别流程：
- * 1. 检测动态手势（滑动） → SWIPE_UP / SWIPE_DOWN
- * 2. 提取手指状态 → 与已录制特征匹配 → 返回对应的 DouyinAction
- * 3. 防抖 + 冷却机制
+ * 所有操作（包括滑动）都通过录制的手指状态特征匹配来识别。
+ * 每帧提取 5 根手指的伸直/弯曲状态，与已录制特征做 5 分制匹配。
  */
 class GestureDetector(
     private val holdFrames: Int = 8,
     private val cooldownFrames: Int = 25,
-    private val swipeThreshold: Float = 0.06f,
-    private val matchThreshold: Int = 4      // 匹配度阈值 (满分 5，至少 4 分)
+    private val matchThreshold: Int = 4      // 匹配度阈值 (满分 5)
 ) {
-    // 已录制的手势特征 (操作 → 手指状态编码)，由外部设置
     var recordedProfiles: Map<DouyinAction, Int> = emptyMap()
 
     private var lastStableAction: DouyinAction = DouyinAction.NONE
     private var stableFrameCount: Int = 0
     private var cooldownRemaining: Int = 0
-
-    // 滑动检测
-    private var wristYHistory = ArrayDeque<Float>(5)
 
     fun processFrame(landmarks: List<NormalizedLandmark>?): DouyinAction {
         if (cooldownRemaining > 0) {
@@ -39,13 +32,6 @@ class GestureDetector(
             return DouyinAction.NONE
         }
 
-        // 1. 动态手势：滑动
-        val swipeAction = detectSwipe(landmarks)
-        if (swipeAction != DouyinAction.NONE) {
-            return triggerAction(swipeAction)
-        }
-
-        // 2. 静态手势：特征匹配
         val fingerState = HandLandmarkHelper.getFingerStates(landmarks)
         val matchedAction = matchProfile(fingerState)
 
@@ -56,8 +42,6 @@ class GestureDetector(
             stabilizeAction(matchedAction)
         }
     }
-
-    // ── 特征匹配 ──
 
     private fun matchProfile(state: HandLandmarkHelper.FingerState): DouyinAction {
         if (recordedProfiles.isEmpty()) return DouyinAction.NONE
@@ -77,8 +61,6 @@ class GestureDetector(
         return if (bestScore >= matchThreshold) bestAction else DouyinAction.NONE
     }
 
-    // ── 防抖 ──
-
     private fun stabilizeAction(action: DouyinAction): DouyinAction {
         return if (action == lastStableAction) {
             stableFrameCount++
@@ -95,27 +77,8 @@ class GestureDetector(
         }
     }
 
-    // ── 滑动 ──
-
-    private fun detectSwipe(landmarks: List<NormalizedLandmark>): DouyinAction {
-        val wristY = landmarks[HandLandmarkHelper.WRIST].y()
-        wristYHistory.addLast(wristY)
-        if (wristYHistory.size > 5) wristYHistory.removeFirst()
-        if (wristYHistory.size < 5) return DouyinAction.NONE
-
-        val deltaY = wristYHistory.last() - wristYHistory.first()
-        return when {
-            deltaY < -swipeThreshold -> DouyinAction.SWIPE_UP
-            deltaY > swipeThreshold -> DouyinAction.SWIPE_DOWN
-            else -> DouyinAction.NONE
-        }
-    }
-
-    // ── 触发 + 冷却 ──
-
     private fun triggerAction(action: DouyinAction): DouyinAction {
         cooldownRemaining = cooldownFrames
-        wristYHistory.clear()
         resetState()
         Log.d("GestureDetector", "触发: ${action.displayName}")
         return action

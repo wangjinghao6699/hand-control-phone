@@ -26,8 +26,10 @@ class GestureMappingStore(private val context: Context) {
     // ── 编码/解码 ──
 
     companion object {
-        /** 可录制手势的操作列表（不包含滑动） */
+        /** 可录制手势的操作列表（全部 7 个） */
         val RECORDABLE_ACTIONS = listOf(
+            DouyinAction.SWIPE_UP,
+            DouyinAction.SWIPE_DOWN,
             DouyinAction.LIKE,
             DouyinAction.FAVORITE,
             DouyinAction.PAUSE,
