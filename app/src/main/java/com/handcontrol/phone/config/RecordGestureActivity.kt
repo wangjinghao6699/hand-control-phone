@@ -10,7 +10,11 @@ import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
-import com.google.mediapipe.framework.image.MediaImageBuilder
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import java.io.ByteArrayOutputStream
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
@@ -162,16 +166,32 @@ class RecordGestureActivity : AppCompatActivity() {
     }
 
     private fun processFrame(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image
-        if (mediaImage == null) { imageProxy.close(); return }
+        val bitmap = imageProxyToBitmap(imageProxy)
+        imageProxy.close()
+        if (bitmap == null) return
         try {
-            val mpImage = MediaImageBuilder(mediaImage).build()
+            val mpImage = BitmapImageBuilder(bitmap).build()
             handLandmarker?.detectAsync(mpImage, System.currentTimeMillis())
         } catch (e: Exception) {
             Log.e(TAG, "检测异常: ${e.message}")
         } finally {
-            imageProxy.close()
+            bitmap.recycle()
         }
+    }
+
+    private fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap? {
+        val yBuffer = imageProxy.planes[0].buffer
+        val uBuffer = imageProxy.planes[1].buffer
+        val vBuffer = imageProxy.planes[2].buffer
+        val ySize = yBuffer.remaining(); val uSize = uBuffer.remaining(); val vSize = vBuffer.remaining()
+        val nv21 = ByteArray(ySize + uSize + vSize)
+        yBuffer.get(nv21, 0, ySize); vBuffer.get(nv21, ySize, vSize); uBuffer.get(nv21, ySize + vSize, uSize)
+        val yuv = android.graphics.YuvImage(nv21, android.graphics.ImageFormat.NV21, imageProxy.width, imageProxy.height, null)
+        val out = java.io.ByteArrayOutputStream()
+        yuv.compressToJpeg(android.graphics.Rect(0, 0, imageProxy.width, imageProxy.height), 50, out)
+        var bmp = android.graphics.BitmapFactory.decodeByteArray(out.toByteArray(), 0, out.size()) ?: return null
+        val m = android.graphics.Matrix().apply { postScale(-1f, 1f, bmp.width / 2f, bmp.height / 2f) }
+        return android.graphics.Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
     }
 
     private fun startRecording() {

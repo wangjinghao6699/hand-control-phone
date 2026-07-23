@@ -2,18 +2,20 @@ package com.handcontrol.phone.camera
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Matrix
 import android.util.Log
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
-import com.google.mediapipe.framework.image.MediaImageBuilder
-import com.google.mediapipe.framework.image.MPImage
+import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult
+import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 
 class CameraManager(
@@ -25,7 +27,6 @@ class CameraManager(
     }
 
     var onHandLandmarksDetected: ((HandLandmarkerResult?) -> Unit)? = null
-    var onPreviewBitmap: ((Bitmap) -> Unit)? = null
 
     private var handLandmarker: HandLandmarker? = null
     private val analysisExecutor = Executors.newSingleThreadExecutor()
@@ -68,21 +69,48 @@ class CameraManager(
         }, ContextCompat.getMainExecutor(context))
     }
 
-    // ── 帧处理：直接从 Image 创建 MPImage，零拷贝 ──
-
     private fun processImageProxy(imageProxy: ImageProxy) {
-        val mediaImage = imageProxy.image
-        if (mediaImage == null) { imageProxy.close(); return }
+        if (imageProxy.image == null) { imageProxy.close(); return }
+
+        // YUV → NV21 → JPEG → Bitmap (已验证可行)
+        val yBuffer = imageProxy.planes[0].buffer
+        val uBuffer = imageProxy.planes[1].buffer
+        val vBuffer = imageProxy.planes[2].buffer
+        val ySize = yBuffer.remaining()
+        val uSize = uBuffer.remaining()
+        val vSize = vBuffer.remaining()
+
+        val nv21 = ByteArray(ySize + uSize + vSize)
+        yBuffer.get(nv21, 0, ySize)
+        vBuffer.get(nv21, ySize, vSize)
+        uBuffer.get(nv21, ySize + vSize, uSize)
+
+        val yuvImage = android.graphics.YuvImage(
+            nv21, android.graphics.ImageFormat.NV21,
+            imageProxy.width, imageProxy.height, null
+        )
+        val out = ByteArrayOutputStream()
+        yuvImage.compressToJpeg(
+            android.graphics.Rect(0, 0, imageProxy.width, imageProxy.height),
+            50, out  // 低质量 JPEG 加速
+        )
+        imageProxy.close()
+
+        val jpeg = out.toByteArray()
+        var bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size)
+        if (bitmap == null) return
+
+        // 前置摄像头镜像
+        val matrix = Matrix().apply { postScale(-1f, 1f, bitmap.width / 2f, bitmap.height / 2f) }
+        bitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
 
         try {
-            // 直接用 android.media.Image 构建 MPImage，跳过 YUV→JPEG→Bitmap
-            val mpImage = MediaImageBuilder(mediaImage).build()
-            val frameTime = System.currentTimeMillis()
-            handLandmarker?.detectAsync(mpImage, frameTime)
+            val mpImage = BitmapImageBuilder(bitmap).build()
+            handLandmarker?.detectAsync(mpImage, System.currentTimeMillis())
         } catch (e: Exception) {
             Log.e(TAG, "检测异常: ${e.message}")
         } finally {
-            imageProxy.close()
+            bitmap.recycle()
         }
     }
 
