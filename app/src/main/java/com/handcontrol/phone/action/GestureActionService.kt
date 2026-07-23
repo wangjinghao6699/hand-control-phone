@@ -81,7 +81,7 @@ class GestureActionService : AccessibilityService() {
         return dispatchGesture(
             GestureDescription.Builder()
                 .addStroke(GestureDescription.StrokeDescription(path, 0, 350))
-                .build(), callback(), null
+                .build(), null, null
         )
     }
 
@@ -108,15 +108,6 @@ class GestureActionService : AccessibilityService() {
         tap(rx, ry)
         handler.postDelayed({ tap(rx, ry) }, 280)
         return true
-    }
-
-    private fun callback() = object : GestureDescription.GestureResultCallback() {
-        override fun onCompleted(gestureDescription: GestureDescription?) {
-            Log.d(TAG, "手势完成")
-        }
-        override fun onCancelled(gestureDescription: GestureDescription?) {
-            Log.w(TAG, "手势取消")
-        }
     }
 
     // ── 策略2: shell input tap（回退方案） ──
