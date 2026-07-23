@@ -6,24 +6,22 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 /**
  * 手势检测器 — 归一化 MSE 匹配 + EMA 平滑
  *
- * 参照 hand-control-dy 算法：
- * 1. EMA 平滑 21 个关键点
- * 2. 归一化（手腕原点 + 中掌指缩放）
- * 3. 与已录制模板做 MSE 匹配
- * 4. 连续 N 帧最小 MSE 低于阈值 + 冷却 → 触发
+ * 参数对齐 hand-control-dy 参考项目
  */
 class GestureDetector(
-    private val holdFrames: Int = 10,           // 连续匹配帧数
-    private val cooldownFrames: Int = 50,       // 冷却帧数 (~3s)
-    private val mseThreshold: Float = 0.04f     // MSE 阈值（越大越宽松，0.02-0.06 推荐）
+    private val holdFrames: Int = 4,              // 确认帧数 (对齐参考项目)
+    private val cooldownFrames: Int = 20,          // 冷却帧数 ~1.5s @13fps (对齐参考项目)
+    private val mseThreshold: Float = 0.06f,       // MSE 阈值 (参考项目 0.25 Euclidean ≈ 0.0625 MSE)
+    private val hysteresisMargin: Float = 0.15f    // 切换迟滞：新手势需比当前好 15% (对齐参考项目)
 ) {
     var recordedTemplates: Map<DouyinAction, FloatArray> = emptyMap()
 
     private val emaBuffer = HandLandmarkHelper.SmoothedLandmarks()
-    private var lastMatchedAction: DouyinAction = DouyinAction.NONE
+    private var currentBestAction: DouyinAction = DouyinAction.NONE
+    private var currentBestScore: Float = Float.MAX_VALUE
     private var stableCount: Int = 0
     private var cooldownRemaining: Int = 0
-    private var lastTriggeredAction: DouyinAction = DouyinAction.NONE
+    private var lastActionTime: Long = 0
 
     fun processFrame(landmarks: List<NormalizedLandmark>?): DouyinAction {
         if (cooldownRemaining > 0) {
@@ -44,18 +42,32 @@ class GestureDetector(
         val normalized = HandLandmarkHelper.normalize(emaBuffer.values)
 
         // 3. MSE 匹配
-        val matched = matchByMSE(normalized)
-
-        return if (matched == DouyinAction.NONE) {
+        val (action, score) = findBestMatch(normalized)
+        if (action == DouyinAction.NONE) {
             resetState()
-            DouyinAction.NONE
-        } else {
-            stabilize(matched)
+            return DouyinAction.NONE
         }
+
+        // 4. 迟滞：新手势必须明显更好才切换（分数低 15% 以上）
+        if (action == currentBestAction) {
+            stableCount++
+            currentBestScore = score
+        } else if (currentBestAction == DouyinAction.NONE || score < currentBestScore * (1 - hysteresisMargin)) {
+            currentBestAction = action
+            currentBestScore = score
+            stableCount = 1
+        }
+        // 否则忽略（噪音），不增减计数
+
+        // 5. 确认帧数达标 → 触发
+        if (stableCount >= holdFrames) {
+            return trigger(action)
+        }
+        return DouyinAction.NONE
     }
 
-    private fun matchByMSE(normalized: FloatArray): DouyinAction {
-        if (recordedTemplates.isEmpty()) return DouyinAction.NONE
+    private fun findBestMatch(normalized: FloatArray): Pair<DouyinAction, Float> {
+        if (recordedTemplates.isEmpty()) return DouyinAction.NONE to Float.MAX_VALUE
 
         var bestAction = DouyinAction.NONE
         var bestMse = Float.MAX_VALUE
@@ -68,33 +80,13 @@ class GestureDetector(
             }
         }
 
-        return if (bestMse <= mseThreshold) bestAction else DouyinAction.NONE
-    }
-
-    private fun stabilize(action: DouyinAction): DouyinAction {
-        return if (action == lastMatchedAction) {
-            stableCount++
-            if (stableCount >= holdFrames) {
-                stableCount = 0
-                trigger(action)
-            } else {
-                DouyinAction.NONE
-            }
-        } else {
-            lastMatchedAction = action
-            stableCount = 1
-            DouyinAction.NONE
-        }
+        return if (bestMse <= mseThreshold) bestAction to bestMse
+        else DouyinAction.NONE to Float.MAX_VALUE
     }
 
     private fun trigger(action: DouyinAction): DouyinAction {
-        // 额外保护：不重复触发同一操作（除非冷却结束）
-        if (action == lastTriggeredAction && cooldownRemaining > 0) {
-            return DouyinAction.NONE
-        }
         cooldownRemaining = cooldownFrames
-        lastTriggeredAction = action
-        lastMatchedAction = DouyinAction.NONE
+        resetState()
         Log.d("GestureDetector", "触发: ${action.displayName}")
         return action
     }
@@ -104,7 +96,8 @@ class GestureDetector(
     }
 
     private fun resetState() {
-        lastMatchedAction = DouyinAction.NONE
+        currentBestAction = DouyinAction.NONE
+        currentBestScore = Float.MAX_VALUE
         stableCount = 0
     }
 }

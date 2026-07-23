@@ -29,7 +29,7 @@ object HandLandmarkHelper {
     fun smooth(
         landmarks: List<NormalizedLandmark>,
         buffer: SmoothedLandmarks,
-        alpha: Float = 0.35f
+        alpha: Float = 0.45f  // 对齐参考项目
     ) {
         if (!buffer.initialized) {
             for (i in 0 until LANDMARK_COUNT) {
