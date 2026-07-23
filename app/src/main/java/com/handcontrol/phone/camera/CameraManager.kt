@@ -39,8 +39,8 @@ class CameraManager(
                 .setResultListener { result: HandLandmarkerResult?, _ -> onHandLandmarksDetected?.invoke(result) }
                 .setErrorListener { Log.e(TAG, "MediaPipe 错误: ${it.message}") }
                 .setNumHands(1)
-                .setMinHandDetectionConfidence(0.4f)
-                .setMinTrackingConfidence(0.4f)
+                .setMinHandDetectionConfidence(0.6f)
+                .setMinTrackingConfidence(0.5f)
                 .build()
             handLandmarker = HandLandmarker.createFromOptions(context, options)
             Log.d(TAG, "HandLandmarker 初始化成功")

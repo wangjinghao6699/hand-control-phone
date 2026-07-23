@@ -265,14 +265,17 @@ class OverlayService : Service(), LifecycleOwner {
     }
 
     private fun processHandResult(result: HandLandmarkerResult?) {
-        val landmarks = result?.landmarks()?.firstOrNull()
-        val action = gestureDetector.processFrame(landmarks)
-
-        scope.launch {
-            updateGestureUI(action)
-            if (action != DouyinAction.NONE) {
-                if (GestureActionService.execute(action)) flashIndicator()
+        try {
+            val landmarks = result?.landmarks()?.firstOrNull()
+            val action = gestureDetector.processFrame(landmarks)
+            scope.launch {
+                updateGestureUI(action)
+                if (action != DouyinAction.NONE) {
+                    if (GestureActionService.execute(action)) flashIndicator()
+                }
             }
+        } catch (e: Exception) {
+            Log.e(TAG, "手势处理异常: ${e.message}", e)
         }
     }
 
