@@ -26,16 +26,16 @@ import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 
 /**
- * 手势录制界面
+ * 手势录制界面 — 采集归一化特征模板
  *
- * 用户对着摄像头做手势 → 采集 N 帧手指状态 → 取众数 → 保存
+ * 录制流程：用户保持手势 → 采集 N 帧归一化向量 → 取平均 → 保存为模板
  */
 class RecordGestureActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_ACTION_CODE = "action_code"
         private const val TAG = "RecordGesture"
-        private const val SAMPLE_FRAMES = 30  // 采集帧数
+        private const val SAMPLE_FRAMES = 25
     }
 
     private lateinit var previewView: PreviewView
@@ -51,8 +51,9 @@ class RecordGestureActivity : AppCompatActivity() {
 
     private var action: DouyinAction = DouyinAction.LIKE
     private var isRecording = false
-    private var collectedStates = mutableListOf<HandLandmarkHelper.FingerState>()
     private var frameCount = 0
+    private val collectedVectors = mutableListOf<FloatArray>()
+    private val emaBuffer = HandLandmarkHelper.SmoothedLandmarks()
 
     private val mappingStore by lazy { GestureMappingStore(this) }
 
@@ -71,10 +72,8 @@ class RecordGestureActivity : AppCompatActivity() {
 
         tvActionName.text = "录制手势：${action.displayName}"
 
-        // 返回
         findViewById<View>(R.id.btn_back).setOnClickListener { finish() }
 
-        // 录制按钮
         btnRecord.setOnClickListener {
             if (isRecording) {
                 scope.launch { stopRecording() }
@@ -83,10 +82,9 @@ class RecordGestureActivity : AppCompatActivity() {
             }
         }
 
-        // 删除已录制
         findViewById<View>(R.id.btn_delete).setOnClickListener {
             scope.launch {
-                mappingStore.deleteProfile(action)
+                mappingStore.deleteTemplate(action)
                 Toast.makeText(this@RecordGestureActivity, "已删除", Toast.LENGTH_SHORT).show()
                 tvHint.text = "点击「开始录制」录入新手势"
             }
@@ -96,39 +94,40 @@ class RecordGestureActivity : AppCompatActivity() {
         startCamera()
     }
 
-    // ── MediaPipe ──
-
     private fun initHandLandmarker() {
         try {
             val baseOptions = BaseOptions.builder()
                 .setModelAssetPath("hand_landmarker.task")
                 .build()
-
             val options = HandLandmarker.HandLandmarkerOptions.builder()
                 .setBaseOptions(baseOptions)
                 .setRunningMode(RunningMode.LIVE_STREAM)
                 .setResultListener { result: HandLandmarkerResult?, _ ->
-                    if (isRecording) {
-                        processForRecording(result)
-                    }
+                    if (isRecording) processForRecording(result)
                 }
                 .setErrorListener { Log.e(TAG, "MediaPipe 错误: ${it.message}") }
                 .setNumHands(1)
                 .setMinHandDetectionConfidence(0.5f)
                 .setMinTrackingConfidence(0.5f)
                 .build()
-
             handLandmarker = HandLandmarker.createFromOptions(this, options)
         } catch (e: Exception) {
             Log.e(TAG, "HandLandmarker 初始化失败: ${e.message}", e)
-            tvHint.text = "模型加载失败，请检查 hand_landmarker.task"
+            tvHint.text = "模型加载失败"
         }
     }
 
     private fun processForRecording(result: HandLandmarkerResult?) {
         val landmarks = result?.landmarks()?.firstOrNull() ?: return
-        val state = HandLandmarkHelper.getFingerStates(landmarks)
-        collectedStates.add(state)
+        if (landmarks.size < 21) return
+
+        // EMA 平滑
+        HandLandmarkHelper.smooth(landmarks, emaBuffer)
+        if (!emaBuffer.initialized) return
+
+        // 归一化并采集
+        val normalized = HandLandmarkHelper.normalize(emaBuffer.values)
+        collectedVectors.add(normalized)
         frameCount++
 
         scope.launch {
@@ -140,8 +139,6 @@ class RecordGestureActivity : AppCompatActivity() {
         }
     }
 
-    // ── CameraX ──
-
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
@@ -152,8 +149,7 @@ class RecordGestureActivity : AppCompatActivity() {
             val imageAnalysis = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setTargetResolution(android.util.Size(224, 224))
-                .build()
-                .also { analysis ->
+                .build().also { analysis ->
                     analysis.setAnalyzer(analysisExecutor) { imageProxy ->
                         processFrame(imageProxy)
                     }
@@ -161,10 +157,7 @@ class RecordGestureActivity : AppCompatActivity() {
             try {
                 cameraProvider.unbindAll()
                 cameraProvider.bindToLifecycle(
-                    this,
-                    CameraSelector.DEFAULT_FRONT_CAMERA,
-                    preview,
-                    imageAnalysis
+                    this, CameraSelector.DEFAULT_FRONT_CAMERA, preview, imageAnalysis
                 )
             } catch (e: Exception) {
                 Log.e(TAG, "摄像头绑定失败: ${e.message}", e)
@@ -176,11 +169,9 @@ class RecordGestureActivity : AppCompatActivity() {
         val bitmap = imageProxyToBitmap(imageProxy)
         imageProxy.close()
         if (bitmap == null) return
-
-        val handLandmarker = this.handLandmarker ?: return
         try {
             val mpImage = BitmapImageBuilder(bitmap).build()
-            handLandmarker.detectAsync(mpImage, System.currentTimeMillis())
+            handLandmarker?.detectAsync(mpImage, System.currentTimeMillis())
         } catch (e: Exception) {
             Log.e(TAG, "检测异常: ${e.message}")
         }
@@ -193,12 +184,10 @@ class RecordGestureActivity : AppCompatActivity() {
         val ySize = yBuffer.remaining()
         val uSize = uBuffer.remaining()
         val vSize = vBuffer.remaining()
-
         val nv21 = ByteArray(ySize + uSize + vSize)
         yBuffer.get(nv21, 0, ySize)
         vBuffer.get(nv21, ySize, vSize)
         uBuffer.get(nv21, ySize + vSize, uSize)
-
         val yuvImage = android.graphics.YuvImage(
             nv21, android.graphics.ImageFormat.NV21,
             imageProxy.width, imageProxy.height, null
@@ -214,12 +203,11 @@ class RecordGestureActivity : AppCompatActivity() {
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
 
-    // ── 录制控制 ──
-
     private fun startRecording() {
         isRecording = true
-        collectedStates.clear()
+        collectedVectors.clear()
         frameCount = 0
+        emaBuffer.initialized = false
         btnRecord.isEnabled = false
         tvHint.text = "请保持手势不动…"
         tvProgress.text = "采集: 0 / $SAMPLE_FRAMES"
@@ -233,29 +221,30 @@ class RecordGestureActivity : AppCompatActivity() {
         progressBar.visibility = View.GONE
         tvProgress.visibility = View.GONE
 
-        if (collectedStates.isEmpty()) {
-            tvHint.text = "未检测到手部，请重试"
+        if (collectedVectors.size < 5) {
+            tvHint.text = "采集不足（${collectedVectors.size} 帧），请重试"
             return
         }
 
-        // 取众数（出现次数最多的手指状态编码）
-        val codeCounts = collectedStates
-            .map { GestureMappingStore.encodeFingerState(it) }
-            .groupingBy { it }
-            .eachCount()
+        // 取平均作为模板
+        val template = HandLandmarkHelper.averageTemplates(collectedVectors)
 
-        val bestCode = codeCounts.maxByOrNull { it.value }?.key ?: return
-        val occurrence = codeCounts[bestCode] ?: 0
-        val confidence = (occurrence * 100 / collectedStates.size)
-
-        val bestState = GestureMappingStore.decodeFingerState(bestCode)
+        // 自检：计算每帧与平均模板的 MSE，评估一致性
+        var maxErr = 0f
+        for (v in collectedVectors) {
+            val err = HandLandmarkHelper.mse(v, template)
+            if (err > maxErr) maxErr = err
+        }
 
         // 保存
-        mappingStore.saveProfile(action, bestState)
+        mappingStore.saveTemplate(action, template)
 
-        val desc = GestureMappingStore.fingerStateDescription(bestState)
-        tvHint.text = "✅ 录制成功！(置信度 $confidence%)\n$desc"
-        Toast.makeText(this, "手势已保存: ${action.displayName}", Toast.LENGTH_SHORT).show()
+        tvHint.text = if (maxErr < 0.02f) {
+            "✅ 录制成功！(一致性良好, max MSE=${"%.4f".format(maxErr)})"
+        } else {
+            "⚠️ 已保存，但手势波动较大 (max MSE=${"%.4f".format(maxErr)})，建议重新录制"
+        }
+        Toast.makeText(this, "模板已保存: ${action.displayName}", Toast.LENGTH_SHORT).show()
     }
 
     override fun onDestroy() {

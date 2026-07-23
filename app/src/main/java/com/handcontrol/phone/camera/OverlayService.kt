@@ -256,11 +256,11 @@ class OverlayService : Service(), LifecycleOwner {
         cameraManager.initHandLandmarker()
 
         scope.launch {
-            gestureDetector.recordedProfiles = mappingStore.getAllProfiles()
+            gestureDetector.recordedTemplates = mappingStore.getAllTemplates()
+            gestureDetector.resetEmaBuffer()
         }
 
         cameraManager.onHandLandmarksDetected = { result -> processHandResult(result) }
-
         previewView.post { cameraManager.startCamera(previewView) }
     }
 

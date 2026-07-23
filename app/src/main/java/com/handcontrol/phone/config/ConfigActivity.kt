@@ -11,19 +11,12 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.handcontrol.phone.R
 import com.handcontrol.phone.gesture.DouyinAction
-import com.handcontrol.phone.gesture.HandLandmarkHelper
 import kotlinx.coroutines.*
 
-/**
- * 手势配置界面
- *
- * 显示固定的操作列表，每个操作显示录制状态，点击进入录制界面。
- */
 class ConfigActivity : AppCompatActivity() {
 
     private lateinit var recyclerView: RecyclerView
     private lateinit var btnResetAll: Button
-
     private val mappingStore by lazy { GestureMappingStore(this) }
     private val adapter by lazy { ActionListAdapter(mappingStore) }
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -38,28 +31,27 @@ class ConfigActivity : AppCompatActivity() {
 
         recyclerView.layoutManager = LinearLayoutManager(this)
         recyclerView.adapter = adapter
-
-        loadProfiles()
+        loadTemplates()
 
         btnResetAll.setOnClickListener {
             scope.launch {
                 mappingStore.resetAll()
-                loadProfiles()
-                Toast.makeText(this@ConfigActivity, "已清除所有录制", Toast.LENGTH_SHORT).show()
+                loadTemplates()
+                Toast.makeText(this@ConfigActivity, "已清除全部模板", Toast.LENGTH_SHORT).show()
             }
         }
     }
 
-    private fun loadProfiles() {
+    private fun loadTemplates() {
         scope.launch {
-            val profiles = mappingStore.getAllProfiles()
-            adapter.submitList(profiles)
+            val templates = mappingStore.getAllTemplates()
+            adapter.submitList(templates)
         }
     }
 
     override fun onResume() {
         super.onResume()
-        loadProfiles()
+        loadTemplates()
     }
 
     override fun onDestroy() {
@@ -68,19 +60,14 @@ class ConfigActivity : AppCompatActivity() {
     }
 }
 
-// ──────────────────────────────────────────────
-// RecyclerView Adapter
-// ──────────────────────────────────────────────
-
 class ActionListAdapter(
     private val mappingStore: GestureMappingStore
 ) : RecyclerView.Adapter<ActionListAdapter.ViewHolder>() {
 
-    // 已录制特征: 操作 → 编码
-    private var profiles: Map<DouyinAction, Int> = emptyMap()
+    private var templates: Map<DouyinAction, FloatArray> = emptyMap()
 
-    fun submitList(newProfiles: Map<DouyinAction, Int>) {
-        profiles = newProfiles
+    fun submitList(newTemplates: Map<DouyinAction, FloatArray>) {
+        templates = newTemplates
         notifyDataSetChanged()
     }
 
@@ -92,8 +79,7 @@ class ActionListAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val action = GestureMappingStore.RECORDABLE_ACTIONS[position]
-        val code = profiles[action]
-        holder.bind(action, code)
+        holder.bind(action, templates.containsKey(action))
     }
 
     override fun getItemCount(): Int = GestureMappingStore.RECORDABLE_ACTIONS.size
@@ -103,27 +89,20 @@ class ActionListAdapter(
         private val tvGestureDesc: TextView = itemView.findViewById(R.id.tv_gesture_desc)
         private val indicator: View = itemView.findViewById(R.id.indicator_recorded)
 
-        fun bind(action: DouyinAction, code: Int?) {
+        fun bind(action: DouyinAction, hasTemplate: Boolean) {
             tvActionName.text = action.displayName
-
-            if (code != null) {
-                val state = GestureMappingStore.decodeFingerState(code)
-                tvGestureDesc.text = "✅ ${GestureMappingStore.fingerStateDescription(state)}"
+            if (hasTemplate) {
+                tvGestureDesc.text = "✅ 已录制"
                 indicator.setBackgroundResource(R.drawable.circle_green)
             } else {
-                tvGestureDesc.text = "未录制 — 点击右侧按钮录制"
+                tvGestureDesc.text = "未录制 — 点击录制"
                 indicator.setBackgroundResource(R.drawable.circle_accent)
             }
-
             itemView.setOnClickListener {
-                openRecordActivity(action)
+                val intent = Intent(itemView.context, RecordGestureActivity::class.java)
+                intent.putExtra(RecordGestureActivity.EXTRA_ACTION_CODE, action.code)
+                itemView.context.startActivity(intent)
             }
-        }
-
-        private fun openRecordActivity(action: DouyinAction) {
-            val intent = Intent(itemView.context, RecordGestureActivity::class.java)
-            intent.putExtra(RecordGestureActivity.EXTRA_ACTION_CODE, action.code)
-            itemView.context.startActivity(intent)
         }
     }
 }
