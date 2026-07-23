@@ -107,8 +107,8 @@ class RecordGestureActivity : AppCompatActivity() {
                 }
                 .setErrorListener { Log.e(TAG, "MediaPipe 错误: ${it.message}") }
                 .setNumHands(1)
-                .setMinHandDetectionConfidence(0.6f)
-                .setMinTrackingConfidence(0.5f)
+                .setMinHandDetectionConfidence(0.5f)
+                .setMinTrackingConfidence(0.4f)
                 .build()
             handLandmarker = HandLandmarker.createFromOptions(this, options)
         } catch (e: Exception) {

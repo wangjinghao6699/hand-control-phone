@@ -119,12 +119,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isAccessibilityEnabled(): Boolean {
-        val serviceName = "$packageName/.action.GestureActionService"
-        val enabled = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        )
-        return enabled?.contains(serviceName) == true || enabled?.contains("com.handcontrol.phone.action.GestureActionService") == true
+        val enabled = Settings.Secure.getString(contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: ""
+        return enabled.contains("$packageName/.action.GestureActionService") ||
+               enabled.contains("com.handcontrol.phone.action.GestureActionService") ||
+               enabled.contains("com.handcontrol.phone/.action.GestureActionService")
     }
 
     private fun requestCameraPermission() {
