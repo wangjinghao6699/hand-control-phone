@@ -2,6 +2,7 @@ package com.handcontrol.phone.action
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
+import android.accessibilityservice.GestureResultCallback
 import android.graphics.Path
 import android.os.Build
 import android.os.Handler
@@ -13,10 +14,10 @@ import android.view.accessibility.AccessibilityEvent
 import com.handcontrol.phone.gesture.DouyinAction
 
 /**
- * 无障碍服务 — 坐标点击操作抖音
+ * 无障碍服务 — 双重策略操作抖音
  *
- * 使用精确屏幕比例坐标，不再依赖脆弱的无障碍树遍历。
- * 抖音右侧按钮列布局是固定的：点赞/评论/收藏/分享/头像，从上到下排列。
+ * 策略1: dispatchGesture 模拟触摸（标准方法）
+ * 策略2: Runtime.exec("input tap") shell 注入（兼容方法）
  */
 class GestureActionService : AccessibilityService() {
 
@@ -39,13 +40,6 @@ class GestureActionService : AccessibilityService() {
     private var screenWidth: Int = 1080
     private var screenHeight: Int = 1920
     private val handler = Handler(Looper.getMainLooper())
-
-    // 抖音右侧按钮列坐标比例
-    private val rightBtnX = 0.87f
-    private val likeBtnY = 0.37f
-    private val commentBtnY = 0.49f
-    private val favoriteBtnY = 0.61f
-    private val profileBtnY = 0.78f
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -71,29 +65,44 @@ class GestureActionService : AccessibilityService() {
             DouyinAction.SWIPE_DOWN  -> swipe(true)
             DouyinAction.LIKE        -> doubleTap(0.5f, 0.5f)
             DouyinAction.PAUSE       -> tap(0.5f, 0.5f)
-            DouyinAction.COMMENT     -> tap(rightBtnX, commentBtnY)
-            DouyinAction.FAVORITE    -> tap(rightBtnX, favoriteBtnY)
-            DouyinAction.PROFILE     -> tap(rightBtnX, profileBtnY)
+            DouyinAction.COMMENT     -> tap(0.87f, 0.49f)
+            DouyinAction.FAVORITE    -> tap(0.87f, 0.61f)
+            DouyinAction.PROFILE     -> tap(0.83f, 0.80f)
             DouyinAction.NONE        -> true
         }
     }
+
+    // ── 策略1: dispatchGesture ──
 
     private fun swipe(downward: Boolean): Boolean {
         val fromY = if (downward) screenHeight * 0.22f else screenHeight * 0.78f
         val toY   = if (downward) screenHeight * 0.78f else screenHeight * 0.22f
         val x = screenWidth * 0.5f
         val path = Path().apply { moveTo(x, fromY); lineTo(x, toY) }
-        return dispatch(GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, 350))
-            .build())
+        return dispatchGesture(
+            GestureDescription.Builder()
+                .addStroke(GestureDescription.StrokeDescription(path, 0, 350))
+                .build(), callback(), null
+        )
     }
 
     private fun tap(rx: Float, ry: Float): Boolean {
-        val x = screenWidth * rx; val y = screenHeight * ry
-        val path = Path().apply { moveTo(x, y) }
-        return dispatch(GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, 60))
-            .build())
+        val x = (screenWidth * rx).toInt()
+        val y = (screenHeight * ry).toInt()
+
+        // 策略1: dispatchGesture
+        val path = Path().apply { moveTo(x.toFloat(), y.toFloat()) }
+        val ok = dispatchGesture(
+            GestureDescription.Builder()
+                .addStroke(GestureDescription.StrokeDescription(path, 0, 100))
+                .build(), null, null
+        )
+        if (!ok) {
+            Log.w(TAG, "dispatchGesture 失败 ($x,$y)，尝试 shell")
+            // 策略2: shell input tap 回退
+            return shellTap(x, y)
+        }
+        return true
     }
 
     private fun doubleTap(rx: Float, ry: Float): Boolean {
@@ -102,11 +111,31 @@ class GestureActionService : AccessibilityService() {
         return true
     }
 
-    private fun dispatch(gesture: GestureDescription): Boolean {
-        val ok = dispatchGesture(gesture, null, null)
-        if (!ok) Log.w(TAG, "dispatchGesture 失败")
-        return ok
+    private fun callback() = object : GestureResultCallback() {
+        override fun onCompleted(gestureDescription: GestureDescription?) {
+            Log.d(TAG, "手势完成")
+        }
+        override fun onCancelled(gestureDescription: GestureDescription?) {
+            Log.w(TAG, "手势取消")
+        }
     }
+
+    // ── 策略2: shell input tap（回退方案） ──
+
+    private fun shellTap(x: Int, y: Int): Boolean {
+        return try {
+            val cmd = "input tap $x $y"
+            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", cmd))
+            val exitCode = process.waitFor()
+            Log.d(TAG, "shell tap ($x,$y) exit=$exitCode")
+            exitCode == 0
+        } catch (e: Exception) {
+            Log.e(TAG, "shell tap 异常: ${e.message}")
+            false
+        }
+    }
+
+    // ── 屏幕尺寸 ──
 
     private fun updateScreenSize() {
         val wm = getSystemService(WINDOW_SERVICE) as? WindowManager ?: return
