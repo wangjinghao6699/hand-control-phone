@@ -2,7 +2,6 @@ package com.handcontrol.phone.action
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
-import android.accessibilityservice.GestureResultCallback
 import android.graphics.Path
 import android.os.Build
 import android.os.Handler
@@ -111,7 +110,7 @@ class GestureActionService : AccessibilityService() {
         return true
     }
 
-    private fun callback() = object : GestureResultCallback() {
+    private fun callback() = object : GestureDescription.GestureResultCallback() {
         override fun onCompleted(gestureDescription: GestureDescription?) {
             Log.d(TAG, "手势完成")
         }
