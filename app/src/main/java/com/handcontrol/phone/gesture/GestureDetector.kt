@@ -11,9 +11,9 @@ import com.handcontrol.phone.config.GestureMappingStore
  * 每帧提取 5 根手指的伸直/弯曲状态，与已录制特征做 5 分制匹配。
  */
 class GestureDetector(
-    private val holdFrames: Int = 8,
-    private val cooldownFrames: Int = 25,
-    private val matchThreshold: Int = 4      // 匹配度阈值 (满分 5)
+    private val holdFrames: Int = 12,         // 需连续 12 帧相同才触发 (~0.8s @ 15fps)
+    private val cooldownFrames: Int = 50,     // 触发后冷却 50 帧 (~3.3s @ 15fps)
+    private val matchThreshold: Int = 5       // 匹配度阈值：必须全中 (满分 5)
 ) {
     var recordedProfiles: Map<DouyinAction, Int> = emptyMap()
 

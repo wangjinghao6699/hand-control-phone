@@ -70,7 +70,7 @@ object HandLandmarkHelper {
         val mcp = landmarks[mcpIdx].toPoint3D()
         val tipToMcp = distance(tip, mcp)
         val pipToMcp = distance(pip, mcp)
-        return tipToMcp > pipToMcp + 0.03f
+        return tipToMcp > pipToMcp + 0.05f
     }
 
     /** 食指伸直 */
