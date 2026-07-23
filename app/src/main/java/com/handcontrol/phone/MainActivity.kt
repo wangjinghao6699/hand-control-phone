@@ -17,6 +17,9 @@ import com.handcontrol.phone.action.GestureActionService
 import com.handcontrol.phone.camera.OverlayService
 import com.handcontrol.phone.config.ConfigActivity
 import com.handcontrol.phone.databinding.ActivityMainBinding
+import com.handcontrol.phone.camera.OverlayService
+import com.handcontrol.phone.config.ConfigActivity
+import com.handcontrol.phone.databinding.ActivityMainBinding
 
 class MainActivity : AppCompatActivity() {
 
@@ -80,7 +83,7 @@ class MainActivity : AppCompatActivity() {
         val cameraGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
                 PackageManager.PERMISSION_GRANTED
 
-        val accessibilityRunning = GestureActionService.isRunning()
+        val accessibilityRunning = isAccessibilityEnabled()
         val serviceRunning = OverlayService.isRunning
 
         binding.tvServiceStatus.text = when {
@@ -107,7 +110,7 @@ class MainActivity : AppCompatActivity() {
             requestOverlayPermission()
             return
         }
-        if (!GestureActionService.isRunning()) {
+        if (!isAccessibilityEnabled()) {
             Toast.makeText(this, "请先开启无障碍服务", Toast.LENGTH_SHORT).show()
             openAccessibilitySettings()
             return
@@ -118,6 +121,15 @@ class MainActivity : AppCompatActivity() {
             return
         }
         startService()
+    }
+
+    private fun isAccessibilityEnabled(): Boolean {
+        val serviceName = "$packageName/.action.GestureActionService"
+        val enabled = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        )
+        return enabled?.contains(serviceName) == true || enabled?.contains("com.handcontrol.phone.action.GestureActionService") == true
     }
 
     private fun requestCameraPermission() {

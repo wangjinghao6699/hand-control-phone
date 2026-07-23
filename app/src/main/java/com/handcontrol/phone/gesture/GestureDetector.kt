@@ -15,7 +15,7 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 class GestureDetector(
     private val holdFrames: Int = 10,           // 连续匹配帧数
     private val cooldownFrames: Int = 50,       // 冷却帧数 (~3s)
-    private val mseThreshold: Float = 0.015f    // MSE 阈值，越小越严格
+    private val mseThreshold: Float = 0.04f     // MSE 阈值（越大越宽松，0.02-0.06 推荐）
 ) {
     var recordedTemplates: Map<DouyinAction, FloatArray> = emptyMap()
 
